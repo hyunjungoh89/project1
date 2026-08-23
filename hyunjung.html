@@ -1,0 +1,878 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>제주 스마트 여행 도우미 — 혼잡도 신호등 & 바가지 체크</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Jua&family=Gowun+Batang:wght@400;700&family=Noto+Sans+KR:wght@400;500;700;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#20302A;        /* 현무암 다크 */
+    --ink-soft:#3C5049;
+    --paper:#FBF6EC;      /* 제주 햇살 아이보리 */
+    --paper-warm:#F3EAD6;
+    --citrus:#F0863B;     /* 감귤 오렌지 */
+    --ocean:#1C6E8C;      /* 바다 블루 */
+    --canola:#F2B705;     /* 유채꽃 옐로우 */
+    --green:#3E8E5A;      /* 여유 */
+    --amber:#E0A526;      /* 주의 */
+    --red:#C8503B;        /* 혼잡/바가지 */
+    --line:rgba(32,48,42,0.14);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Noto Sans KR',sans-serif;
+    line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+  }
+  ::selection{background:var(--citrus);color:#fff;}
+
+  /* ---------- HERO ---------- */
+  .hero{
+    position:relative;
+    padding:56px 24px 0;
+    background:linear-gradient(180deg,#2A3C33 0%, #20302A 60%, var(--paper) 100%);
+    color:var(--paper);
+    overflow:hidden;
+  }
+  .hero-inner{max-width:980px;margin:0 auto;position:relative;z-index:2;}
+  .eyebrow{
+    font-family:'Space Mono',monospace;
+    font-size:12px; letter-spacing:.14em; text-transform:uppercase;
+    color:var(--canola); margin-bottom:14px; display:flex; gap:10px; align-items:center;
+  }
+  .eyebrow::before{content:"";width:22px;height:2px;background:var(--canola);display:inline-block;}
+  h1.title{
+    font-family:'Jua',sans-serif;
+    font-weight:400;
+    font-size:clamp(32px,6vw,58px);
+    line-height:1.15;
+    margin:0 0 14px;
+    letter-spacing:-0.01em;
+  }
+  h1.title span{color:var(--citrus);}
+  .sub{
+    font-size:16px; max-width:560px; color:#E7E2D3; margin-bottom:36px;
+  }
+  .sub b{color:var(--canola); font-weight:700;}
+
+  /* skyline tab bar — signature element */
+  .skyline-wrap{position:relative; max-width:980px; margin:0 auto; padding-bottom:0;}
+  .skyline{
+    display:flex; align-items:flex-end; gap:0; position:relative; z-index:2;
+  }
+  .peak{
+    flex:1; position:relative; cursor:pointer; border:none; background:none;
+    padding:0; color:inherit; font-family:'Noto Sans KR',sans-serif;
+    outline-offset:4px;
+  }
+  .peak svg{display:block; width:100%; height:64px;}
+  .peak .ridge{fill:#31463C; transition:fill .25s ease;}
+  .peak.active .ridge{fill:var(--citrus);}
+  .peak-label{
+    display:flex; flex-direction:column; align-items:center; gap:4px;
+    padding:10px 4px 16px; font-size:13px; font-weight:700; color:#CFC9B8;
+    transition:color .25s ease;
+  }
+  .peak-label .ico{font-size:20px;}
+  .peak.active .peak-label{color:var(--paper);}
+  .peak:focus-visible{outline:2px solid var(--canola);}
+  .skyline-base{height:3px; background:var(--citrus); opacity:.9;}
+
+  /* ---------- MAIN ---------- */
+  main{max-width:980px; margin:0 auto; padding:38px 24px 90px;}
+  .panel{display:none;}
+  .panel.active{display:block; animation:rise .35s ease;}
+  @keyframes rise{from{opacity:0; transform:translateY(8px);} to{opacity:1; transform:translateY(0);}}
+
+  .panel-head{margin-bottom:26px;}
+  .panel-head h2{
+    font-family:'Jua',sans-serif; font-weight:400; font-size:26px; margin:0 0 8px;
+  }
+  .panel-head p{margin:0; color:var(--ink-soft); font-size:14.5px; max-width:640px;}
+
+  .controls{display:flex; flex-wrap:wrap; gap:10px; margin:18px 0 28px;}
+  .chip{
+    font-family:'Space Mono',monospace; font-size:13px; font-weight:700;
+    padding:8px 16px; border-radius:999px; border:1.5px solid var(--ink);
+    background:transparent; color:var(--ink); cursor:pointer;
+  }
+  .chip.active{background:var(--ink); color:var(--paper);}
+  .chip:hover{background:rgba(32,48,42,.08);}
+  .chip.active:hover{background:var(--ink);}
+
+  /* ranking bars */
+  .rank-list{display:flex; flex-direction:column; gap:10px;}
+  .rank-item{
+    display:grid; grid-template-columns:34px 1fr auto; align-items:center; gap:14px;
+    background:#fff; border:1px solid var(--line); border-radius:12px;
+    padding:12px 16px; position:relative; overflow:hidden;
+  }
+  .rank-item .fillbar{
+    position:absolute; left:0; top:0; bottom:0; background:var(--paper-warm); z-index:0;
+    transition:width .5s ease;
+  }
+  .rank-item > *{position:relative; z-index:1;}
+  .rank-num{
+    font-family:'Space Mono',monospace; font-weight:700; font-size:15px;
+    width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+    background:var(--ink); color:var(--paper);
+  }
+  .rank-item.alt .rank-num{background:var(--ocean);}
+  .rank-name{font-weight:700; font-size:15px;}
+  .rank-meta{display:flex; align-items:center; gap:12px;}
+  .rank-count{font-family:'Space Mono',monospace; font-size:13px; color:var(--ink-soft);}
+  .signal{
+    width:14px;height:14px;border-radius:50%; flex:none;
+    box-shadow:0 0 0 3px rgba(0,0,0,.04);
+  }
+  .signal.red{background:var(--red);}
+  .signal.amber{background:var(--amber);}
+  .signal.green{background:var(--green);}
+
+  /* live estimate box */
+  .now-box{
+    display:flex; align-items:center; gap:16px; background:#fff; border:1px solid var(--line);
+    border-radius:14px; padding:16px 18px; margin-bottom:18px;
+  }
+  .now-box .gauge{
+    width:56px; height:56px; border-radius:50%; flex:none; display:flex; align-items:center; justify-content:center;
+    font-family:'Space Mono',monospace; font-weight:700; font-size:13px; color:#fff;
+  }
+  .now-box .now-text{flex:1; font-size:13.5px; color:var(--ink-soft);}
+  .now-box .now-text b{color:var(--ink); font-size:14.5px;}
+  .now-box .now-link{
+    font-size:12.5px; font-weight:700; color:var(--ocean); text-decoration:none; white-space:nowrap;
+    border:1.5px solid var(--ocean); border-radius:999px; padding:7px 12px;
+  }
+  .now-box .now-link:hover{background:var(--ocean); color:#fff;}
+
+  /* jeju congestion map */
+  .map-box{
+    background:#fff; border:1px solid var(--line); border-radius:16px;
+    padding:18px 18px 16px; margin-bottom:20px;
+  }
+  .map-head{display:flex; justify-content:space-between; align-items:baseline; gap:10px; flex-wrap:wrap; margin-bottom:6px;}
+  .map-head h3{font-family:'Jua',sans-serif; font-weight:400; font-size:17px; margin:0;}
+  .map-head span{font-size:12.5px; color:var(--ink-soft);}
+  .map-frame{position:relative; width:100%;}
+  svg#jeju-map{width:100%; height:auto; display:block;}
+  .island-shape{fill:#EFE7D2; stroke:var(--ink); stroke-width:0.5; stroke-linejoin:round;}
+  .hallasan-shape{fill:#DCD0A9; stroke:var(--ink-soft); stroke-width:0.25;}
+  .poi-dot{stroke:#fff; stroke-width:0.7;}
+  .poi-rank{font-family:'Space Mono',monospace; font-size:2.5px; fill:#fff; font-weight:700; text-anchor:middle; pointer-events:none;}
+  .poi-label{font-family:'Noto Sans KR',sans-serif; font-size:2.5px; font-weight:700; fill:var(--ink); pointer-events:none;}
+  .map-legend{display:flex; flex-wrap:wrap; gap:14px 18px; margin-top:10px; padding-top:10px; border-top:1px solid var(--line);}
+  .map-legend .lg{display:flex; align-items:center; gap:6px; font-size:12px; color:var(--ink-soft);}
+  .lg-dot{width:11px; height:11px; border-radius:50%; flex:none; box-shadow:0 0 0 2px rgba(0,0,0,.05);}
+
+  /* food cards */
+  .food-grid{display:grid; grid-template-columns:1fr; gap:14px;}
+  @media(min-width:700px){ .food-grid{grid-template-columns:1fr 1fr;} }
+  .food-card{
+    background:#fff; border:1px solid var(--line); border-radius:14px; padding:18px 20px;
+    display:flex; flex-direction:column; gap:8px;
+  }
+  .food-card .fc-top{display:flex; justify-content:space-between; align-items:flex-start; gap:10px;}
+  .food-card .fc-name{font-family:'Jua',sans-serif; font-weight:400; font-size:18px;}
+  .food-card .fc-menu{
+    font-family:'Space Mono',monospace; font-size:11px; color:var(--ocean); letter-spacing:.03em;
+    text-transform:uppercase; margin-bottom:2px; display:block;
+  }
+  .open-badge{
+    font-size:11.5px; font-weight:700; padding:4px 10px; border-radius:999px; white-space:nowrap; flex:none;
+  }
+  .open-badge.open{background:rgba(62,142,90,.15); color:var(--green);}
+  .open-badge.closed{background:rgba(200,80,59,.15); color:var(--red);}
+  .fc-row{font-size:13px; color:var(--ink-soft); display:flex; gap:6px;}
+  .fc-row b{color:var(--ink); font-weight:600;}
+  .fc-tip{font-size:12.5px; color:var(--ink-soft); border-top:1px dashed var(--line); padding-top:8px; margin-top:2px;}
+  .food-empty{grid-column:1/-1;}
+
+  .alt-note{
+    margin-top:22px; padding:16px 18px; background:#fff; border:1px dashed var(--ocean);
+    border-radius:12px; font-size:14px; color:var(--ink-soft);
+  }
+  .alt-note b{color:var(--ocean);}
+
+  /* food price section */
+  .price-grid{display:grid; grid-template-columns:1fr; gap:24px;}
+  @media(min-width:760px){ .price-grid{grid-template-columns:1.2fr 1fr;} }
+  .bars{display:flex; flex-direction:column; gap:7px;}
+  .bar-row{display:grid; grid-template-columns:52px 1fr 68px; align-items:center; gap:10px; font-size:12.5px;}
+  .bar-row.jeju{font-weight:900;}
+  .bar-track{height:16px; background:var(--paper-warm); border-radius:6px; overflow:hidden;}
+  .bar-fill{height:100%; background:var(--ocean); border-radius:6px;}
+  .bar-row.jeju .bar-fill{background:var(--citrus);}
+  .bar-price{font-family:'Space Mono',monospace; text-align:right;}
+
+  .baggage-card{
+    background:var(--ink); color:var(--paper); border-radius:16px; padding:22px 22px 24px;
+  }
+  .baggage-card h3{font-family:'Jua',sans-serif; font-weight:400; margin:0 0 6px; font-size:19px; color:var(--canola);}
+  .baggage-card p.tip{font-size:12.5px; color:#CFC9B8; margin:0 0 16px;}
+  .field-row{display:flex; flex-direction:column; gap:6px; margin-bottom:14px;}
+  .field-row label{font-size:12px; letter-spacing:.03em; color:#CFC9B8; text-transform:uppercase; font-family:'Space Mono',monospace;}
+  .field-row input, .field-row select{
+    padding:11px 12px; border-radius:8px; border:none; font-size:15px;
+    font-family:'Noto Sans KR',sans-serif; background:#2E4038; color:var(--paper);
+  }
+  .field-row input::placeholder{color:#8A9992;}
+  .baggage-btn{
+    width:100%; padding:12px; border:none; border-radius:8px; margin-top:4px;
+    background:var(--citrus); color:#20302A; font-weight:700; font-size:15px; cursor:pointer;
+  }
+  .baggage-btn:hover{filter:brightness(1.06);}
+  .verdict{
+    margin-top:16px; padding:14px 16px; border-radius:10px; font-size:14px; display:none;
+  }
+  .verdict.show{display:block;}
+  .verdict.ok{background:rgba(62,142,90,.18); border:1px solid var(--green);}
+  .verdict.warn{background:rgba(224,165,38,.18); border:1px solid var(--amber);}
+  .verdict.bad{background:rgba(200,80,59,.2); border:1px solid var(--red);}
+  .verdict b{display:block; font-size:16px; margin-bottom:4px;}
+
+  .news-strip{
+    margin-top:20px; font-size:13px; color:var(--ink-soft); border-top:1px solid var(--line); padding-top:14px;
+  }
+
+  /* community report */
+  .report-form{
+    display:grid; grid-template-columns:1fr 1fr auto; gap:10px; background:#fff;
+    border:1px solid var(--line); border-radius:12px; padding:16px; margin-bottom:22px;
+  }
+  @media(max-width:640px){ .report-form{grid-template-columns:1fr;} }
+  .report-form select, .report-form button{
+    padding:11px 12px; border-radius:8px; font-size:14px; font-family:inherit;
+  }
+  .report-form select{border:1.5px solid var(--line); background:#fff;}
+  .report-form button{
+    border:none; background:var(--ink); color:var(--paper); font-weight:700; cursor:pointer;
+  }
+  .report-form button:hover{background:var(--ink-soft);}
+  .report-status{font-size:12.5px; color:var(--ink-soft); margin:-10px 0 20px;}
+
+  .board{display:flex; flex-direction:column; gap:8px;}
+  .board-item{
+    display:flex; align-items:center; justify-content:space-between; gap:12px;
+    background:#fff; border:1px solid var(--line); border-radius:10px; padding:12px 16px; font-size:14px;
+  }
+  .board-item .place{font-weight:700;}
+  .board-item .board-time{font-size:11.5px; color:var(--ink-soft); font-family:'Space Mono',monospace; margin-top:2px;}
+  .board-item .avg{font-family:'Space Mono',monospace; font-size:13px; color:var(--ink-soft); text-align:right; white-space:nowrap;}
+  .empty{padding:26px; text-align:center; color:var(--ink-soft); font-size:14px; border:1px dashed var(--line); border-radius:12px;}
+
+  .section-sub{font-family:'Jua',sans-serif; font-weight:400; font-size:16px; margin:26px 0 10px;}
+  .recent-list{display:flex; flex-direction:column; gap:6px;}
+  .recent-item{
+    display:flex; align-items:center; gap:10px; background:#fff; border:1px solid var(--line);
+    border-radius:9px; padding:10px 14px; font-size:13.5px;
+  }
+  .recent-item .r-emoji{font-size:16px; flex:none;}
+  .recent-item .r-place{font-weight:700; flex:1;}
+  .recent-item .r-level{font-size:12px; color:var(--ink-soft); flex:none;}
+  .recent-item .r-time{font-family:'Space Mono',monospace; font-size:12px; color:var(--ink-soft); flex:none; white-space:nowrap;}
+
+  footer{
+    max-width:980px; margin:0 auto; padding:0 24px 60px; color:var(--ink-soft); font-size:12.5px;
+  }
+  footer a{color:var(--ocean);}
+</style>
+</head>
+<body>
+
+<section class="hero">
+  <div class="hero-inner">
+    <div class="eyebrow">Jeju Tourism Organization · 2026.07 데이터 기반</div>
+    <h1 class="title">붐비지 않게, <span>바가지</span> 쓰지 않게.</h1>
+    <p class="sub">제주관광공사 빅데이터와 전국 외식비 통계로 만든 여행 도우미예요. 오늘 어디가 붐비는지, 이 가격이 정상인지 30초 안에 확인해보세요. <b>2026년 6월 협재·금능 평상 바가지 사건</b>에서 아이디어를 얻었어요.</p>
+  </div>
+  <div class="skyline-wrap">
+    <nav class="skyline" id="skyline"></nav>
+    <div class="skyline-base"></div>
+  </div>
+</section>
+
+<main>
+
+  <!-- PANEL 1: 혼잡도 랭킹 -->
+  <section class="panel active" id="panel-crowd">
+    <div class="panel-head">
+      <h2>지금 어디가 붐빌까?</h2>
+      <p>티맵 내비게이션 도착 건수를 기준으로 만든 순위예요. 위쪽일수록 사람이 많이 몰린 곳, 신호등이 빨간색일수록 혼잡해요.</p>
+    </div>
+    <div class="map-box">
+      <div class="map-head">
+        <h3>🗺️ 제주 혼잡도 지도</h3>
+        <span id="map-caption">현재 선택된 카테고리 기준, 원이 클수록 · 색이 붉을수록 붐비는 곳이에요.</span>
+      </div>
+      <div class="map-frame">
+        <svg id="jeju-map" viewBox="0 0 100 55" xmlns="http://www.w3.org/2000/svg">
+          <path class="island-shape" d="M4,32 C3,24 9,15 18,12 C26,9 33,15 42,11 C50,7 58,6 66,9 C76,12 85,10 92,16 C97,20 98,27 94,32 C90,37 91,43 84,46 C76,50 68,44 60,47 C52,50 46,47 38,49 C29,51 22,50 15,45 C8,41 5,38 4,32 Z"></path>
+          <ellipse class="hallasan-shape" cx="45" cy="27" rx="7" ry="5"></ellipse>
+          <g id="map-markers"></g>
+        </svg>
+      </div>
+      <div class="map-legend">
+        <span class="lg"><span class="lg-dot" style="background:var(--red)"></span>혼잡 (1~2위)</span>
+        <span class="lg"><span class="lg-dot" style="background:var(--amber)"></span>보통 (3~5위)</span>
+        <span class="lg"><span class="lg-dot" style="background:var(--green)"></span>여유 (6위 이하)</span>
+      </div>
+    </div>
+    <div class="controls" id="month-controls"></div>
+    <div class="controls" id="cat-controls"></div>
+    <div class="now-box" id="now-box"></div>
+    <div class="rank-list" id="rank-list"></div>
+    <div class="alt-note" id="alt-note"></div>
+  </section>
+
+  <!-- PANEL 2: 외식비 & 바가지 체크 -->
+  <section class="panel" id="panel-price">
+    <div class="panel-head">
+      <h2>이 가격, 정상일까?</h2>
+      <p>2026년 6월 전국 개인서비스요금 조사 자료예요. 품목을 고르면 제주 가격이 전국에서 어디쯤인지 보여줘요.</p>
+    </div>
+    <div class="controls" id="item-controls"></div>
+    <div class="price-grid">
+      <div class="bars" id="price-bars"></div>
+      <div class="baggage-card">
+        <h3>🧾 바가지 체크</h3>
+        <p class="tip">내가 낸 가격을 넣으면 제주 평균가와 비교해줘요.</p>
+        <div class="field-row">
+          <label>품목</label>
+          <select id="baggage-item"></select>
+        </div>
+        <div class="field-row">
+          <label>내가 낸 가격 (원)</label>
+          <input id="baggage-price" type="number" placeholder="예: 15000">
+        </div>
+        <button class="baggage-btn" id="baggage-btn">비교하기</button>
+        <div class="verdict" id="verdict"></div>
+        <div class="news-strip">📰 실제로 2026년 6월, 협재·금능해수욕장 평상 대여료가 5~7만원까지 받아 논란이 됐고 제주도가 3만원 균일가로 정비했어요.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PANEL 3: 우리반 제보 -->
+  <section class="panel" id="panel-report">
+    <div class="panel-head">
+      <h2>우리 팀 혼잡도 제보</h2>
+      <p>직접 가본 곳의 혼잡도를 남겨보세요. 같은 앱을 보는 팀원 모두에게 실시간으로 보여요.</p>
+    </div>
+    <div class="report-form">
+      <select id="report-place"></select>
+      <select id="report-level">
+        <option value="1">😌 1 · 아주 한산</option>
+        <option value="2">🙂 2 · 여유</option>
+        <option value="3" selected>😐 3 · 보통</option>
+        <option value="4">😣 4 · 붐빔</option>
+        <option value="5">🥵 5 · 매우 혼잡</option>
+      </select>
+      <button id="report-submit">제보 남기기</button>
+    </div>
+    <p class="report-status" id="report-status">아직 제보가 없어요. 첫 제보를 남겨보세요!</p>
+    <div class="board" id="board"></div>
+
+    <h3 class="section-sub">🕒 최근 제보 내역</h3>
+    <div class="recent-list" id="recent-list"></div>
+  </section>
+
+  <!-- PANEL 4: 음식 추천 -->
+  <section class="panel" id="panel-food">
+    <div class="panel-head">
+      <h2>오늘 뭐 먹지?</h2>
+      <p>좋아하는 메뉴를 고르거나 직접 입력하면 실제 영업 중인 제주 식당을 추천해줘요. 영업시간·휴무일 정보가 함께 나와요.</p>
+    </div>
+    <div class="controls" id="menu-controls"></div>
+    <div class="field-row" style="max-width:420px; margin-bottom:22px;">
+      <label style="color:var(--ink-soft);">직접 검색 (예: 매콤한 거, 해산물, 국수)</label>
+      <input id="menu-search" type="text" placeholder="먹고 싶은 걸 적어보세요"
+        style="padding:11px 12px; border-radius:8px; border:1.5px solid var(--line); font-size:15px; font-family:inherit; background:#fff;">
+    </div>
+    <div id="food-cards" class="food-grid"></div>
+  </section>
+
+</main>
+
+<footer>
+  자료 출처: 제주관광공사 「제주 관광시장 동향 보고서 2026년 7월호」(티맵 내비게이션 도착 건수, 4~6월), 개인서비스(외식비) 가격현황 2026년 6월 이 페이지는 프로토타입으로, 실제 실시간 혼잡도 데이터는 아니며 월별 방문 패턴을 참고용으로 재구성한 것이에요.
+</footer>
+
+<script>
+/* ================= DATA ================= */
+const CATS = [
+  {key:'oreum', label:'산·오름', icon:'⛰️'},
+  {key:'beach', label:'해변·해안', icon:'🌊'},
+  {key:'forest', label:'숲·휴양림', icon:'🌲'},
+  {key:'market', label:'관광지·시장', icon:'🏮'},
+];
+const MONTHS = [4,5,6];
+
+const crowdData = {
+  oreum: {
+    4:[['성산일출봉',7010],['녹산로 유채꽃도로',4185],['송악산',3244],['산방산',2574],['새별오름',2120],['금오름',1766],['산방산유채꽃밭',1385],['서우봉',1098],['도두봉',1084],['용눈이오름',910]],
+    5:[['성산일출봉',9038],['송악산',3658],['산방산',2428],['금오름',2245],['새별오름',1981],['성판악휴게소',1566],['도두봉',1187],['한라산 영실탐방로',904],['용눈이오름',1039],['산굼부리',738]],
+    6:[['성산일출봉',7144],['송악산',2547],['산방산',1696],['금오름',1591],['새별오름',1378],['성판악휴게소',1154],['도두봉',844],['한라산 영실탐방로',794],['용눈이오름',728],['수월봉',519]],
+  },
+  beach: {
+    4:[['함덕해수욕장',7346],['협재해수욕장',4917],['이호테우해변',4690],['용머리해안',3271],['곽지해수욕장',2585],['김녕해수욕장',2462],['중문색달해변',2067],['표선해수욕장',1867],['사계해수욕장',1692],['금능해수욕장',1640]],
+    5:[['함덕해수욕장',9570],['협재해수욕장',7246],['이호테우해변',5930],['용머리해안',4411],['곽지해수욕장',4079],['김녕해수욕장',4024],['금능해수욕장',3481],['중문색달해변',2757],['표선해수욕장',2408],['삼양해수욕장',2053]],
+    6:[['함덕해수욕장',8404],['협재해수욕장',6800],['이호테우해변',5034],['김녕해수욕장',4261],['곽지해수욕장',4148],['금능해수욕장',3522],['용머리해안',3183],['중문색달해변',3123],['표선해수욕장',2328],['판포포구',2218]],
+  },
+  forest: {
+    4:[['비자림',3577],['한림공원',1938],['한라수목원',1853],['사려니숲길',1743],['예래생태공원',1603],['휴애리',1572],['제주돌문화공원',1397],['제주절물자연휴양림',1296],['비밀의숲',1241],['산양큰엉곶',1078]],
+    5:[['사려니숲길',5398],['비자림',4752],['휴애리자연생활공원',2422],['제주돌문화공원',2121],['한림공원',2044],['비밀의숲',1960],['제주절물자연휴양림',1928],['한라수목원',1808],['산양큰엉곶',1755],['서귀포치유의숲',1650]],
+    6:[['사려니숲길',4266],['비자림',3532],['산양큰엉곶',2521],['휴애리자연생활공원',2251],['제주돌문화공원',1578],['제주절물자연휴양림',1401],['한림공원',1393],['비밀의숲',1299],['한라수목원',1265],['서귀포치유의숲',1204]],
+  },
+  market: {
+    4:[['동문재래시장',15042],['서귀포매일올레시장',11529],['함덕해수욕장',7346],['성산일출봉',7010],['협재해수욕장',4917],['이호테우해변',4690],['오설록티뮤지엄',4540],['제주대 아라캠퍼스',4539],['섭지코지',4140],['용두암',3733]],
+    5:[['동문재래시장',16620],['서귀포매일올레시장',12537],['함덕해수욕장',9570],['성산일출봉',9038],['협재해수욕장',7246],['오설록티뮤지엄',6095],['이호테우해변',5930],['사려니숲길',5398],['비자림',4752],['섭지코지',4577]],
+    6:[['동문재래시장',14688],['서귀포매일올레시장',10968],['함덕해수욕장',8404],['성산일출봉',7144],['협재해수욕장',6800],['오설록티뮤지엄',5063],['이호테우해변',5034],['만장굴',4338],['사려니숲길',4266],['김녕해수욕장',4261]],
+  },
+};
+
+const foodRaw = [{"item": "냉면", "region": "서울", "price": 12615}, {"item": "냉면", "region": "부산", "price": 11857}, {"item": "냉면", "region": "대구", "price": 11750}, {"item": "냉면", "region": "인천", "price": 11917}, {"item": "냉면", "region": "광주", "price": 10600}, {"item": "냉면", "region": "대전", "price": 11200}, {"item": "냉면", "region": "울산", "price": 10600}, {"item": "냉면", "region": "경기", "price": 10931}, {"item": "냉면", "region": "강원", "price": 10556}, {"item": "냉면", "region": "충북", "price": 9714}, {"item": "냉면", "region": "충남", "price": 10300}, {"item": "냉면", "region": "전북", "price": 10500}, {"item": "냉면", "region": "전남", "price": 9667}, {"item": "냉면", "region": "경북", "price": 10308}, {"item": "냉면", "region": "경남", "price": 10808}, {"item": "냉면", "region": "제주", "price": 9750}, {"item": "비빔밥", "region": "서울", "price": 11769}, {"item": "비빔밥", "region": "부산", "price": 9686}, {"item": "비빔밥", "region": "대구", "price": 10417}, {"item": "비빔밥", "region": "인천", "price": 9167}, {"item": "비빔밥", "region": "광주", "price": 10800}, {"item": "비빔밥", "region": "대전", "price": 10900}, {"item": "비빔밥", "region": "울산", "price": 11000}, {"item": "비빔밥", "region": "경기", "price": 9914}, {"item": "비빔밥", "region": "강원", "price": 10444}, {"item": "비빔밥", "region": "충북", "price": 9457}, {"item": "비빔밥", "region": "충남", "price": 10050}, {"item": "비빔밥", "region": "전북", "price": 12100}, {"item": "비빔밥", "region": "전남", "price": 9556}, {"item": "비빔밥", "region": "경북", "price": 9908}, {"item": "비빔밥", "region": "경남", "price": 9154}, {"item": "비빔밥", "region": "제주", "price": 10500}, {"item": "김치찌개 백반", "region": "서울", "price": 8654}, {"item": "김치찌개 백반", "region": "부산", "price": 8429}, {"item": "김치찌개 백반", "region": "대구", "price": 8583}, {"item": "김치찌개 백반", "region": "인천", "price": 8500}, {"item": "김치찌개 백반", "region": "광주", "price": 9000}, {"item": "김치찌개 백반", "region": "대전", "price": 10800}, {"item": "김치찌개 백반", "region": "울산", "price": 8800}, {"item": "김치찌개 백반", "region": "경기", "price": 8790}, {"item": "김치찌개 백반", "region": "강원", "price": 9000}, {"item": "김치찌개 백반", "region": "충북", "price": 9429}, {"item": "김치찌개 백반", "region": "충남", "price": 9400}, {"item": "김치찌개 백반", "region": "전북", "price": 9550}, {"item": "김치찌개 백반", "region": "전남", "price": 8278}, {"item": "김치찌개 백반", "region": "경북", "price": 8923}, {"item": "김치찌개 백반", "region": "경남", "price": 8808}, {"item": "김치찌개 백반", "region": "제주", "price": 9625}, {"item": "삼겹살 환산 후", "region": "서울", "price": 21321}, {"item": "삼겹살 환산 후", "region": "부산", "price": 18175}, {"item": "삼겹살 환산 후", "region": "대구", "price": 18342}, {"item": "삼겹살 환산 후", "region": "인천", "price": 17685}, {"item": "삼겹살 환산 후", "region": "광주", "price": 16111}, {"item": "삼겹살 환산 후", "region": "대전", "price": 18600}, {"item": "삼겹살 환산 후", "region": "울산", "price": 17677}, {"item": "삼겹살 환산 후", "region": "경기", "price": 18293}, {"item": "삼겹살 환산 후", "region": "강원", "price": 15963}, {"item": "삼겹살 환산 후", "region": "충북", "price": 15305}, {"item": "삼겹살 환산 후", "region": "충남", "price": 17742}, {"item": "삼겹살 환산 후", "region": "전북", "price": 16273}, {"item": "삼겹살 환산 후", "region": "전남", "price": 18975}, {"item": "삼겹살 환산 후", "region": "경북", "price": 17178}, {"item": "삼겹살 환산 후", "region": "경남", "price": 19836}, {"item": "삼겹살 환산 후", "region": "제주", "price": 17944}, {"item": "짜장면", "region": "서울", "price": 7654}, {"item": "짜장면", "region": "부산", "price": 7000}, {"item": "짜장면", "region": "대구", "price": 7083}, {"item": "짜장면", "region": "인천", "price": 7083}, {"item": "짜장면", "region": "광주", "price": 7400}, {"item": "짜장면", "region": "대전", "price": 7600}, {"item": "짜장면", "region": "울산", "price": 7000}, {"item": "짜장면", "region": "경기", "price": 7586}, {"item": "짜장면", "region": "강원", "price": 7167}, {"item": "짜장면", "region": "충북", "price": 7000}, {"item": "짜장면", "region": "충남", "price": 6900}, {"item": "짜장면", "region": "전북", "price": 7100}, {"item": "짜장면", "region": "전남", "price": 7278}, {"item": "짜장면", "region": "경북", "price": 6769}, {"item": "짜장면", "region": "경남", "price": 7000}, {"item": "짜장면", "region": "제주", "price": 7750}, {"item": "삼계탕", "region": "서울", "price": 18154}, {"item": "삼계탕", "region": "부산", "price": 17286}, {"item": "삼계탕", "region": "대구", "price": 17167}, {"item": "삼계탕", "region": "인천", "price": 16833}, {"item": "삼계탕", "region": "광주", "price": 17200}, {"item": "삼계탕", "region": "대전", "price": 16800}, {"item": "삼계탕", "region": "울산", "price": 15600}, {"item": "삼계탕", "region": "경기", "price": 17552}, {"item": "삼계탕", "region": "강원", "price": 16444}, {"item": "삼계탕", "region": "충북", "price": 15714}, {"item": "삼계탕", "region": "충남", "price": 16100}, {"item": "삼계탕", "region": "전북", "price": 17500}, {"item": "삼계탕", "region": "전남", "price": 16556}, {"item": "삼계탕", "region": "경북", "price": 16000}, {"item": "삼계탕", "region": "경남", "price": 17154}, {"item": "삼계탕", "region": "제주", "price": 16750}, {"item": "칼국수", "region": "서울", "price": 10038}, {"item": "칼국수", "region": "부산", "price": 8071}, {"item": "칼국수", "region": "대구", "price": 7583}, {"item": "칼국수", "region": "인천", "price": 8833}, {"item": "칼국수", "region": "광주", "price": 9400}, {"item": "칼국수", "region": "대전", "price": 8800}, {"item": "칼국수", "region": "울산", "price": 9500}, {"item": "칼국수", "region": "경기", "price": 9810}, {"item": "칼국수", "region": "강원", "price": 9389}, {"item": "칼국수", "region": "충북", "price": 8857}, {"item": "칼국수", "region": "충남", "price": 9100}, {"item": "칼국수", "region": "전북", "price": 9300}, {"item": "칼국수", "region": "전남", "price": 9333}, {"item": "칼국수", "region": "경북", "price": 8385}, {"item": "칼국수", "region": "경남", "price": 8077}, {"item": "칼국수", "region": "제주", "price": 10375}, {"item": "김밥", "region": "서울", "price": 3838}, {"item": "김밥", "region": "부산", "price": 3543}, {"item": "김밥", "region": "대구", "price": 3250}, {"item": "김밥", "region": "인천", "price": 3633}, {"item": "김밥", "region": "광주", "price": 3720}, {"item": "김밥", "region": "대전", "price": 3300}, {"item": "김밥", "region": "울산", "price": 3500}, {"item": "김밥", "region": "경기", "price": 3707}, {"item": "김밥", "region": "강원", "price": 3389}, {"item": "김밥", "region": "충북", "price": 3286}, {"item": "김밥", "region": "충남", "price": 3250}, {"item": "김밥", "region": "전북", "price": 3380}, {"item": "김밥", "region": "전남", "price": 2889}, {"item": "김밥", "region": "경북", "price": 3462}, {"item": "김밥", "region": "경남", "price": 3669}, {"item": "김밥", "region": "제주", "price": 3625}]
+;
+const ITEMS = [...new Set(foodRaw.map(d=>d.item))];
+const REGION_ORDER = ['서울','부산','대구','인천','광주','대전','울산','경기','강원','충북','충남','전북','전남','경북','경남','제주'];
+
+// 실제 제주 식당 정보 (2026년 8월 검색 기준, 팀 발표용 예시 데이터 — 방문 전 최신 영업시간은 꼭 다시 확인하세요)
+const RESTAURANTS = [
+  {name:'모메존 흑돼지', menu:'흑돼지', area:'구좌 세화', address:'제주시 구좌읍 세화1길 25',
+   open:'11:00', close:'21:00', breakStart:'15:00', breakEnd:'17:00', closedDays:['토'],
+   price:'모둠구이 2인 기준', tip:'세화해변 도보 10분, 반찬 20여 가지가 나와요.'},
+  {name:'흑돼지브라더스', menu:'흑돼지', area:'남원 위미', address:'서귀포시 남원읍 위미해안로 20',
+   open:'11:00', close:'22:00', closedDays:['월'],
+   price:'근고기 600g 1인 기준', tip:'100% 예약제, 식사시간 약 1시간 40분으로 안내돼요.'},
+  {name:'화도 흑돼지', menu:'흑돼지', area:'제주시 화북', address:'제주시 승천로 53',
+   open:'14:00', close:'23:00', closedDays:[],
+   price:'근고기·양념갈비 (현장 확인)', tip:'제주공항에서 차로 약 10분 거리예요.'},
+  {name:'낭쿰낭쿰', menu:'흑돼지', area:'서귀포 중앙', address:'서귀포시 중앙로79번길 4',
+   open:'11:00', close:'22:00', closedDays:['화'],
+   price:'흑돼지해물갈비전골 2인 43,000원', tip:'흑돼지+해물을 함께 즐기는 전골이 대표메뉴예요.'},
+  {name:'자매국수', menu:'고기국수', area:'제주시 공항 인근', address:'제주시 항골남길 46',
+   open:'09:00', close:'18:00', breakStart:'14:20', breakEnd:'16:00', closedDays:['수'],
+   price:'고기국수 9,000원', tip:'대기줄이 긴 편이라 캐리어 보관함도 있어요.'},
+  {name:'부뚜막식당', menu:'갈치조림', area:'성산 고성', address:'서귀포시 성산읍 고성오조로 11',
+   open:'08:00', close:'20:00', closedDays:[], closedNote:'매달 2·4번째 수요일 휴무',
+   price:'갈치조림 + 통갈치구이 서비스', tip:'아침 일찍부터 열어서 조식으로도 좋아요.'},
+  {name:'온정조림 제주협재점', menu:'갈치조림', area:'한림 협재', address:'제주시 한림읍 한림로 328',
+   open:'11:00', close:'22:00', closedDays:['수'],
+   price:'제주마농 갈치조림 (1인 주문 가능)', tip:'협재해수욕장 바로 근처라 물놀이 후 들르기 좋아요.'},
+  {name:'제주뚝배기', menu:'해물뚝배기', area:'성산 일출로', address:'서귀포시 성산읍 일출로 255',
+   open:'07:30', close:'20:30', closedDays:[],
+   price:'전복해물뚝배기 16,000원', tip:'2023년 제주도 백년가게로 선정된 곳이에요.'},
+];
+const MENUS = [...new Set(RESTAURANTS.map(r=>r.menu))];
+
+// 시간대별 혼잡도 가중치(0~100) — 실측 실시간 데이터가 아니라, 일반적인 관광지 방문 패턴을 참고해 만든 추정 곡선입니다.
+const HOURLY_CURVE = [4,3,2,2,2,4,10,22,42,63,80,90,86,74,68,79,84,77,58,38,24,15,10,6];
+
+// 지도용 좌표 (실제 GPS가 아닌, 제주 지형을 참고해 만든 근사 위치예요 · viewBox 0~100 x, 0~55 y 기준)
+const POI_COORDS = {
+  '성산일출봉':[92,22], '녹산로 유채꽃도로':[70,18], '송악산':[13,42], '산방산':[19,37],
+  '새별오름':[29,22], '금오름':[25,20], '산방산유채꽃밭':[20,36], '서우봉':[53,10],
+  '도두봉':[38,12], '용눈이오름':[82,17], '성판악휴게소':[57,30], '한라산 영실탐방로':[38,29],
+  '산굼부리':[55,22], '수월봉':[6,28],
+  '함덕해수욕장':[52,11], '협재해수욕장':[15,17], '이호테우해변':[38,12], '용머리해안':[17,38],
+  '곽지해수욕장':[22,15], '김녕해수욕장':[68,12], '중문색달해변':[44,42], '표선해수욕장':[75,38],
+  '사계해수욕장':[16,40], '금능해수욕장':[13,17], '삼양해수욕장':[47,11], '판포포구':[9,16],
+  '비자림':[68,17], '한림공원':[17,19], '한라수목원':[45,17], '사려니숲길':[57,25],
+  '예래생태공원':[41,42], '휴애리':[60,40], '제주돌문화공원':[64,22], '제주절물자연휴양림':[49,17],
+  '비밀의숲':[55,13], '산양큰엉곶':[24,39], '휴애리자연생활공원':[60,40], '서귀포치유의숲':[52,42],
+  '동문재래시장':[46,10], '서귀포매일올레시장':[50,45], '오설록티뮤지엄':[20,24],
+  '제주대 아라캠퍼스':[48,16], '섭지코지':[90,25], '용두암':[40,9], '만장굴':[68,17],
+};
+const LEVEL_EMOJI = {1:'😌',2:'🙂',3:'😐',4:'😣',5:'🥵'};
+function formatDT(ts){
+  const d = new Date(ts);
+  const mm = String(d.getMonth()+1).padStart(2,'0');
+  const dd = String(d.getDate()).padStart(2,'0');
+  const hh = String(d.getHours()).padStart(2,'0');
+  const mi = String(d.getMinutes()).padStart(2,'0');
+  return `${mm}.${dd} ${hh}:${mi}`;
+}
+
+/* ================= STATE ================= */
+let state = { cat:'oreum', month:6, item:ITEMS[0] };
+
+/* ================= SKYLINE TABS (crowd/price/report as 3 peaks) ================= */
+const TOPTABS = [
+  {key:'crowd', label:'혼잡도', icon:'⛰️'},
+  {key:'food', label:'오늘 뭐 먹지', icon:'🍽️'},
+  {key:'price', label:'바가지체크', icon:'🍊'},
+  {key:'report', label:'직접 제보합시다', icon:'📍'},
+];
+function ridgeSVG(active){
+  return `<svg viewBox="0 0 100 64" preserveAspectRatio="none"><path class="ridge" d="M0,64 L0,40 L30,8 L52,26 L70,4 L100,30 L100,64 Z"></path></svg>`;
+}
+const skyline = document.getElementById('skyline');
+TOPTABS.forEach((t,i)=>{
+  const btn = document.createElement('button');
+  btn.className = 'peak'+(i===0?' active':'');
+  btn.dataset.key = t.key;
+  btn.innerHTML = ridgeSVG() + `<div class="peak-label"><span class="ico">${t.icon}</span>${t.label}</div>`;
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.peak').forEach(p=>p.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+    document.getElementById('panel-'+t.key).classList.add('active');
+  });
+  skyline.appendChild(btn);
+});
+
+/* ================= PANEL 1: CROWD ================= */
+const monthWrap = document.getElementById('month-controls');
+MONTHS.forEach(m=>{
+  const c = document.createElement('button');
+  c.className = 'chip'+(m===state.month?' active':'');
+  c.textContent = m+'월';
+  c.addEventListener('click',()=>{ state.month=m; syncChips(monthWrap,c); renderCrowd(); });
+  monthWrap.appendChild(c);
+});
+const catWrap = document.getElementById('cat-controls');
+CATS.forEach(cat=>{
+  const c = document.createElement('button');
+  c.className = 'chip'+(cat.key===state.cat?' active':'');
+  c.textContent = cat.icon+' '+cat.label;
+  c.addEventListener('click',()=>{ state.cat=cat.key; syncChips(catWrap,c); renderCrowd(); });
+  catWrap.appendChild(c);
+});
+function syncChips(wrap, active){
+  [...wrap.children].forEach(ch=>ch.classList.remove('active'));
+  active.classList.add('active');
+}
+function signalFor(rank){
+  if(rank<=2) return 'red';
+  if(rank<=5) return 'amber';
+  return 'green';
+}
+const SIGNAL_COLOR = {red:'var(--red)', amber:'var(--amber)', green:'var(--green)'};
+function renderMap(list){
+  const g = document.getElementById('map-markers');
+  g.innerHTML = '';
+  const max = Math.max(...list.map(d=>d[1]));
+  list.forEach((d,i)=>{
+    const [name,count] = d;
+    const coord = POI_COORDS[name];
+    if(!coord) return; // 좌표 미확보 장소는 지도에서 생략
+    const rank = i+1;
+    const color = SIGNAL_COLOR[signalFor(rank)];
+    const r = 2.2 + (count/max)*3.4; // 3위 이하로 갈수록 원이 작아짐
+    const [x,y] = coord;
+    const labelY = y - r - 1.4;
+    const dot = document.createElementNS('http://www.w3.org/2000/svg','circle');
+    dot.setAttribute('class','poi-dot');
+    dot.setAttribute('cx',x); dot.setAttribute('cy',y); dot.setAttribute('r',r.toFixed(2));
+    dot.setAttribute('fill',color);
+    dot.innerHTML = `<title>${rank}위 · ${name} (${count.toLocaleString()}건)</title>`;
+    g.appendChild(dot);
+
+    if(rank<=5){
+      const num = document.createElementNS('http://www.w3.org/2000/svg','text');
+      num.setAttribute('class','poi-rank');
+      num.setAttribute('x',x); num.setAttribute('y', Number(y)+0.9);
+      num.textContent = rank;
+      g.appendChild(num);
+
+      const label = document.createElementNS('http://www.w3.org/2000/svg','text');
+      label.setAttribute('class','poi-label');
+      label.setAttribute('x',x); label.setAttribute('y', labelY);
+      label.setAttribute('text-anchor','middle');
+      label.textContent = name.length>7 ? name.slice(0,6)+'…' : name;
+      g.appendChild(label);
+    }
+  });
+}
+function renderCrowd(){
+  const list = crowdData[state.cat][state.month];
+  const max = Math.max(...list.map(d=>d[1]));
+  const rankList = document.getElementById('rank-list');
+  rankList.innerHTML = '';
+  list.forEach((d,i)=>{
+    const [name,count] = d;
+    const rank = i+1;
+    const pct = Math.round(count/max*100);
+    const el = document.createElement('div');
+    el.className = 'rank-item'+(rank>5?' alt':'');
+    el.innerHTML = `
+      <div class="fillbar" style="width:${pct}%"></div>
+      <div class="rank-num">${rank}</div>
+      <div class="rank-name">${name}</div>
+      <div class="rank-meta">
+        <span class="rank-count">${count.toLocaleString()}건</span>
+        <span class="signal ${signalFor(rank)}"></span>
+      </div>`;
+    rankList.appendChild(el);
+  });
+  const catLabel = CATS.find(c=>c.key===state.cat)?.label || '';
+  const capEl = document.getElementById('map-caption');
+  if(capEl) capEl.textContent = `${state.month}월 · ${catLabel} 기준, 원이 클수록 · 색이 붉을수록 붐비는 곳이에요. (1~5위만 이름 표시)`;
+  const alts = list.slice(5,10).map(d=>d[0]).join(', ');
+  document.getElementById('alt-note').innerHTML =
+    `💡 <b>여유롭게 즐기려면?</b> 같은 카테고리 6~10위인 <b>${alts}</b>도 매력적인 대안이에요. 사람은 적고 사진은 잘 나와요.`;
+  renderNowBox(list[0][0]);
+  renderMap(list);
+  populateReportPlaces();
+}
+
+function renderNowBox(topPlaceName){
+  const now = new Date();
+  const hour = now.getHours();
+  const factor = HOURLY_CURVE[hour]; // 0~100
+  let color, label;
+  if(factor>=70){ color='var(--red)'; label='피크타임'; }
+  else if(factor>=35){ color='var(--amber)'; label='보통'; }
+  else{ color='var(--green)'; label='한산'; }
+  const timeStr = now.toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
+  const box = document.getElementById('now-box');
+  box.innerHTML = `
+    <div class="gauge" style="background:${color}">${factor}</div>
+    <div class="now-text">
+      <b>${timeStr} 기준, ${topPlaceName}은(는) 지금 '${label}' 시간대로 추정돼요.</b>
+      실측 실시간 데이터가 아니라 일반적인 방문 패턴으로 만든 추정치예요.
+    </div>
+    <a class="now-link" href="https://somodus.com/jeju" target="_blank" rel="noopener">진짜 실시간 인파 보기 ↗</a>`;
+}
+
+/* ================= PANEL 2: FOOD PRICE ================= */
+const itemWrap = document.getElementById('item-controls');
+ITEMS.forEach(item=>{
+  const c = document.createElement('button');
+  c.className = 'chip'+(item===state.item?' active':'');
+  c.textContent = item;
+  c.addEventListener('click',()=>{ state.item=item; syncChips(itemWrap,c); renderPrice(); baggageSelect.value=item; });
+  itemWrap.appendChild(c);
+});
+const baggageSelect = document.getElementById('baggage-item');
+ITEMS.forEach(item=>{
+  const o = document.createElement('option');
+  o.value = item; o.textContent = item;
+  baggageSelect.appendChild(o);
+});
+function renderPrice(){
+  const rows = REGION_ORDER.map(region=>{
+    const rec = foodRaw.find(d=>d.item===state.item && d.region===region);
+    return {region, price: rec?rec.price:0};
+  });
+  const max = Math.max(...rows.map(r=>r.price));
+  const wrap = document.getElementById('price-bars');
+  wrap.innerHTML = `<div style="font-family:'Space Mono',monospace;font-size:12px;color:var(--ink-soft);margin-bottom:6px;">${state.item} · 지역별 평균가 (2026.06)</div>`;
+  rows.forEach(r=>{
+    const pct = Math.round(r.price/max*100);
+    const row = document.createElement('div');
+    row.className = 'bar-row'+(r.region==='제주'?' jeju':'');
+    row.innerHTML = `
+      <div>${r.region}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
+      <div class="bar-price">${r.price.toLocaleString()}</div>`;
+    wrap.appendChild(row);
+  });
+}
+
+document.getElementById('baggage-btn').addEventListener('click', ()=>{
+  const item = baggageSelect.value;
+  const paid = Number(document.getElementById('baggage-price').value);
+  const verdict = document.getElementById('verdict');
+  if(!paid || paid<=0){
+    verdict.className='verdict show warn';
+    verdict.innerHTML = '<b>가격을 입력해주세요</b>얼마를 냈는지 숫자로 입력하면 비교해드려요.';
+    return;
+  }
+  const jeju = foodRaw.find(d=>d.item===item && d.region==='제주')?.price || 0;
+  const diffPct = Math.round((paid-jeju)/jeju*100);
+  let cls='ok', title='정상 범위예요', desc=`제주 평균가 ${jeju.toLocaleString()}원과 거의 비슷해요.`;
+  if(diffPct>=10 && diffPct<30){ cls='warn'; title='조금 비싸요'; desc=`제주 평균가 ${jeju.toLocaleString()}원보다 ${diffPct}% 더 냈어요. 성수기 할증일 수 있어요.`; }
+  else if(diffPct>=30){ cls='bad'; title='바가지일 수 있어요 🚨'; desc=`제주 평균가 ${jeju.toLocaleString()}원보다 ${diffPct}% 더 냈어요. 영수증을 보관하고 제주도 관광불편신고센터(064-120)에 문의해보세요.`; }
+  else if(diffPct<=-10){ cls='ok'; title='오히려 저렴하게 냈어요'; desc=`제주 평균가 ${jeju.toLocaleString()}원보다 ${Math.abs(diffPct)}% 저렴해요. 좋은 곳을 찾으셨네요.`; }
+  verdict.className = 'verdict show '+cls;
+  verdict.innerHTML = `<b>${title}</b>${desc}`;
+});
+
+/* ================= PANEL: FOOD RECOMMENDATION ================= */
+const DAY_LABELS = ['일','월','화','수','목','금','토'];
+state.menu = 'all';
+state.foodQuery = '';
+
+const menuWrap = document.getElementById('menu-controls');
+const allChip = document.createElement('button');
+allChip.className = 'chip active';
+allChip.textContent = '전체';
+allChip.addEventListener('click', ()=>{ state.menu='all'; syncChips(menuWrap, allChip); renderFood(); });
+menuWrap.appendChild(allChip);
+MENUS.forEach(menu=>{
+  const c = document.createElement('button');
+  c.className = 'chip';
+  c.textContent = menu;
+  c.addEventListener('click',()=>{ state.menu=menu; syncChips(menuWrap,c); renderFood(); });
+  menuWrap.appendChild(c);
+});
+document.getElementById('menu-search').addEventListener('input', (e)=>{
+  state.foodQuery = e.target.value.trim();
+  renderFood();
+});
+
+function timeToMinutes(t){
+  const [h,m] = t.split(':').map(Number);
+  return h*60+m;
+}
+function isOpenNow(r){
+  const now = new Date();
+  const dayLabel = DAY_LABELS[now.getDay()];
+  if(r.closedDays.includes(dayLabel)) return {open:false, reason:`오늘(${dayLabel}요일) 정기휴무`};
+  const nowMin = now.getHours()*60 + now.getMinutes();
+  const openMin = timeToMinutes(r.open);
+  const closeMin = timeToMinutes(r.close);
+  if(nowMin < openMin || nowMin > closeMin) return {open:false, reason:`영업시간 ${r.open}~${r.close}`};
+  if(r.breakStart && r.breakEnd){
+    const bs = timeToMinutes(r.breakStart), be = timeToMinutes(r.breakEnd);
+    if(nowMin>=bs && nowMin<=be) return {open:false, reason:`브레이크타임 ${r.breakStart}~${r.breakEnd}`};
+  }
+  return {open:true, reason:'영업 중'};
+}
+function matchesQuery(r, q){
+  if(!q) return true;
+  const hay = (r.name+' '+r.menu+' '+r.area+' '+r.price+' '+r.tip).toLowerCase();
+  return q.toLowerCase().split(/\s+/).some(tok=>hay.includes(tok));
+}
+function renderFood(){
+  const wrap = document.getElementById('food-cards');
+  wrap.innerHTML = '';
+  const list = RESTAURANTS.filter(r=>
+    (state.menu==='all' || r.menu===state.menu) && matchesQuery(r, state.foodQuery)
+  );
+  if(!list.length){
+    wrap.innerHTML = '<div class="empty food-empty">조건에 맞는 식당이 없어요. 다른 메뉴나 검색어로 찾아보세요.</div>';
+    return;
+  }
+  list.forEach(r=>{
+    const status = isOpenNow(r);
+    const hoursStr = r.breakStart
+      ? `${r.open}~${r.close} (브레이크 ${r.breakStart}~${r.breakEnd})`
+      : `${r.open}~${r.close}`;
+    const closedStr = r.closedNote || (r.closedDays.length ? `매주 ${r.closedDays.join('·')}요일 휴무` : '연중무휴');
+    const card = document.createElement('div');
+    card.className = 'food-card';
+    card.innerHTML = `
+      <div class="fc-top">
+        <div>
+          <span class="fc-menu">${r.menu}</span>
+          <div class="fc-name">${r.name}</div>
+        </div>
+        <span class="open-badge ${status.open?'open':'closed'}">${status.open?'🟢 영업중':'🔴 '+status.reason}</span>
+      </div>
+      <div class="fc-row">📍 <b>${r.area}</b> · ${r.address}</div>
+      <div class="fc-row">🕐 ${hoursStr} · ${closedStr}</div>
+      <div class="fc-row">💰 ${r.price}</div>
+      <div class="fc-tip">💡 ${r.tip}</div>`;
+    wrap.appendChild(card);
+  });
+}
+
+/* ================= PANEL 3: COMMUNITY REPORT (shared storage) ================= */
+function allPlaceNames(){
+  const names = new Set();
+  CATS.forEach(cat=>{
+    MONTHS.forEach(m=>{ crowdData[cat.key][m].forEach(d=>names.add(d[0])); });
+  });
+  return [...names].sort();
+}
+function populateReportPlaces(){
+  const sel = document.getElementById('report-place');
+  if(sel.dataset.filled) return;
+  allPlaceNames().forEach(name=>{
+    const o=document.createElement('option'); o.value=name; o.textContent=name; sel.appendChild(o);
+  });
+  sel.dataset.filled='1';
+}
+
+async function loadReports(){
+  const status = document.getElementById('report-status');
+  const board = document.getElementById('board');
+  try{
+    const listing = await window.storage.list('report:', true);
+    const keys = listing ? listing.keys : [];
+    if(!keys.length){
+      status.textContent = '아직 제보가 없어요. 첫 제보를 남겨보세요!';
+      board.innerHTML = '<div class="empty">여기에 팀원들의 제보가 쌓여요 🗺️</div>';
+      document.getElementById('recent-list').innerHTML = '<div class="empty">아직 제보 내역이 없어요.</div>';
+      return;
+    }
+    const reports = [];
+    for(const k of keys){
+      try{
+        const r = await window.storage.get(k, true);
+        if(r) reports.push(JSON.parse(r.value));
+      }catch(e){ /* skip missing */ }
+    }
+    status.textContent = `총 ${reports.length}건의 제보가 모였어요.`;
+    const byPlace = {};
+    reports.forEach(r=>{
+      if(!byPlace[r.place]) byPlace[r.place]={levels:[], lastTime:0};
+      byPlace[r.place].levels.push(r.level);
+      if(r.time > byPlace[r.place].lastTime) byPlace[r.place].lastTime = r.time;
+    });
+    board.innerHTML='';
+    Object.entries(byPlace)
+      .sort((a,b)=>{
+        const avgA = a[1].levels.reduce((x,y)=>x+y,0)/a[1].levels.length;
+        const avgB = b[1].levels.reduce((x,y)=>x+y,0)/b[1].levels.length;
+        return avgB-avgA;
+      })
+      .forEach(([place, info])=>{
+        const avg = (info.levels.reduce((a,b)=>a+b,0)/info.levels.length).toFixed(1);
+        const item = document.createElement('div');
+        item.className='board-item';
+        item.innerHTML = `
+          <div>
+            <span class="place">${place}</span>
+            <div class="board-time">최근 제보 ${formatDT(info.lastTime)}</div>
+          </div>
+          <span class="avg">평균 혼잡도 ${avg} · 제보 ${info.levels.length}건</span>`;
+        board.appendChild(item);
+      });
+
+    // 최근 제보 내역 — 개별 게시글에 날짜/시간 표시
+    const recentList = document.getElementById('recent-list');
+    const sorted = [...reports].sort((a,b)=>b.time-a.time).slice(0,20);
+    recentList.innerHTML = '';
+    sorted.forEach(r=>{
+      const row = document.createElement('div');
+      row.className = 'recent-item';
+      row.innerHTML = `
+        <span class="r-emoji">${LEVEL_EMOJI[r.level]||'📍'}</span>
+        <span class="r-place">${r.place}</span>
+        <span class="r-level">혼잡도 ${r.level}</span>
+        <span class="r-time">${formatDT(r.time)}</span>`;
+      recentList.appendChild(row);
+    });
+  }catch(e){
+    status.textContent = '제보 목록을 불러오지 못했어요. 새로고침 후 다시 시도해보세요.';
+  }
+}
+
+document.getElementById('report-submit').addEventListener('click', async ()=>{
+  const place = document.getElementById('report-place').value;
+  const level = Number(document.getElementById('report-level').value);
+  if(!place) return;
+  const key = 'report:'+Date.now()+'_'+Math.floor(Math.random()*10000);
+  try{
+    await window.storage.set(key, JSON.stringify({place, level, time:Date.now()}), true);
+    await loadReports();
+  }catch(e){
+    document.getElementById('report-status').textContent = '저장에 실패했어요. 다시 시도해주세요.';
+  }
+});
+
+/* ================= INIT ================= */
+renderCrowd();
+renderPrice();
+renderFood();
+loadReports();
+</script>
+</body>
+</html>
