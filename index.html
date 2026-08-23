@@ -356,8 +356,7 @@
       </div>
     </div>
   </section>
-
-  <!-- PANEL 3: 우리반 제보 -->
+ 
   <section class="panel" id="panel-report">
     <div class="panel-head">
       <h2>우리 팀 혼잡도 제보</h2>
@@ -380,7 +379,7 @@
     <h3 class="section-sub">🕒 최근 제보 내역</h3>
     <div class="recent-list" id="recent-list"></div>
   </section>
-
+ 
   <!-- PANEL 4: 음식 추천 -->
   <section class="panel" id="panel-food">
     <div class="panel-head">
@@ -851,7 +850,7 @@ async function loadReports(){
       recentList.appendChild(row);
     });
   }catch(e){
-    status.textContent = '제보 목록을 불러오지 못했어요. 새로고침 후 다시 시도해보세요.';
+    status.textContent = '제보 기능은 서버가 필요합니다. 현재준비중인 서비스 입니다. 추후에 이용가능합니다.';
   }
 }
 
@@ -864,7 +863,7 @@ document.getElementById('report-submit').addEventListener('click', async ()=>{
     await window.storage.set(key, JSON.stringify({place, level, time:Date.now()}), true);
     await loadReports();
   }catch(e){
-    document.getElementById('report-status').textContent = '저장에 실패했어요. 다시 시도해주세요.';
+    document.getElementById('report-status').textContent = '임시 테스트용(유료 서버 확보 후 이용가능함)';
   }
 });
 
